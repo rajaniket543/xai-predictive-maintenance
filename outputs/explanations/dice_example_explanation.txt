@@ -1,0 +1,11 @@
+Current prediction:
+FAILURE — 100%
+
+Counterfactual:
+NORMAL — 44%
+
+Changes suggested:
+Feature_131: 0.020 -> -1.534
+Feature_510: 1.882 -> -0.849
+
+Note: this is a what-if scenario produced by searching for nearby inputs the model would classify differently. It is not a guaranteed or physically validated maintenance instruction — changes should be reviewed by a domain expert before acting on them.

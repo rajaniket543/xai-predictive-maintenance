@@ -1,0 +1,28 @@
+# Core data science
+pandas==3.0.5
+numpy==2.4.6
+scipy==1.17.1
+joblib==1.5.3
+
+# Machine learning
+scikit-learn==1.9.0
+imbalanced-learn==0.14.2
+xgboost==3.2.0
+
+# Explainable AI
+shap==0.51.0
+lime==0.2.0.1
+dice-ml==0.12
+
+# Visualization
+matplotlib==3.11.1
+seaborn==0.13.2
+plotly==6.9.0
+
+# Dashboard
+streamlit==1.61.1
+
+# Notebook (optional — only needed to (re-)execute notebooks/exploratory_analysis.ipynb)
+jupyter==1.1.1
+nbformat==5.11.1
+ipykernel==7.3.0

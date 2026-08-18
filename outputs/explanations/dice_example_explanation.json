@@ -1,0 +1,75 @@
+{
+  "original_probability": 0.9976050853729248,
+  "original_class": "FAILURE",
+  "counterfactuals": [
+    {
+      "failure_probability": 0.4448263347148895,
+      "predicted_class": "NORMAL",
+      "n_features_changed": 2,
+      "changes": [
+        {
+          "feature": "Feature_131",
+          "original_value": 0.019951743506154397,
+          "counterfactual_value": -1.5338734,
+          "delta": -1.5538251435061545
+        },
+        {
+          "feature": "Feature_510",
+          "original_value": 1.881658279526667,
+          "counterfactual_value": -0.84932687,
+          "delta": -2.730985149526667
+        }
+      ]
+    },
+    {
+      "failure_probability": 0.45759835839271545,
+      "predicted_class": "NORMAL",
+      "n_features_changed": 3,
+      "changes": [
+        {
+          "feature": "Feature_65",
+          "original_value": 1.8143466823179075,
+          "counterfactual_value": -1.35412049,
+          "delta": -3.168467172317907
+        },
+        {
+          "feature": "Feature_131",
+          "original_value": 0.019951743506154397,
+          "counterfactual_value": -1.3265139,
+          "delta": -1.3464656435061544
+        },
+        {
+          "feature": "Feature_143",
+          "original_value": -0.9112404365544525,
+          "counterfactual_value": -1.45188552,
+          "delta": -0.5406450834455475
+        }
+      ]
+    },
+    {
+      "failure_probability": 0.27044835686683655,
+      "predicted_class": "NORMAL",
+      "n_features_changed": 3,
+      "changes": [
+        {
+          "feature": "Feature_91",
+          "original_value": 0.5123188489250788,
+          "counterfactual_value": -2.567966223,
+          "delta": -3.0802850719250787
+        },
+        {
+          "feature": "Feature_131",
+          "original_value": 0.019951743506154397,
+          "counterfactual_value": -1.5452212,
+          "delta": -1.5651729435061545
+        },
+        {
+          "feature": "Feature_510",
+          "original_value": 1.881658279526667,
+          "counterfactual_value": -0.86587241,
+          "delta": -2.747530689526667
+        }
+      ]
+    }
+  ]
+}

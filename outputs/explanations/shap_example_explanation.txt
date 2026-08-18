@@ -1,0 +1,9 @@
+Prediction: FAILURE
+Failure probability: 99.8%
+
+Top contributing factors (SHAP):
+1. Feature_103 = 2.095 -> increases failure probability (SHAP contribution = +1.8493)
+2. Feature_65 = 1.814 -> increases failure probability (SHAP contribution = +1.3229)
+3. Feature_412 = -0.937 -> decreases failure probability (SHAP contribution = -0.5940)
+4. Feature_247 = 0.043 -> increases failure probability (SHAP contribution = +0.5108)
+5. Feature_131 = 0.020 -> increases failure probability (SHAP contribution = +0.4883)
