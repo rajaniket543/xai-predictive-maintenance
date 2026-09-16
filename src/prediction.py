@@ -101,6 +101,9 @@ class PredictionPipeline:
         if not isinstance(df, pd.DataFrame):
             raise InvalidInputError(f"Expected a pandas DataFrame, got {type(df)}.")
 
+        if df.empty:
+            raise InvalidInputError("Input contains no rows.")
+
         missing_cols = [c for c in self.raw_feature_names if c not in df.columns]
         if missing_cols:
             preview = ", ".join(missing_cols[:10])
@@ -124,7 +127,10 @@ class PredictionPipeline:
                 f"Column(s) contain non-numeric values that are not missing-value markers: {bad_names[:10]}"
             )
 
-        return ordered.apply(pd.to_numeric, errors="coerce")
+        numeric = ordered.apply(pd.to_numeric, errors="coerce")
+        if np.isinf(numeric.to_numpy()).any():
+            raise InvalidInputError("Infinite sensor values are not supported.")
+        return numeric
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Raw input -> the exact feature matrix the model consumes (post preprocessing + selection)."""

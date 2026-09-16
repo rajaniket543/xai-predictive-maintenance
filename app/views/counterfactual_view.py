@@ -14,7 +14,7 @@ def render() -> None:
     page_header("Counterfactual Analysis (DiCE)", "What would need to change for this prediction to flip?")
 
     st.markdown(
-        "DiCE (Diverse Counterfactual Explanations) searches for the smallest realistic change to the "
+        "DiCE (Diverse Counterfactual Explanations) searches for sparse input changes to the "
         "input that would flip the model's prediction to the opposite class. These are **what-if "
         "scenarios**, not guaranteed or physically validated maintenance instructions."
     )
@@ -29,18 +29,16 @@ def render() -> None:
     with col1:
         total_cfs = st.slider("Number of counterfactuals to generate", 1, 5, 3)
     with col2:
-        n_mutable = st.slider("Number of top-influence features allowed to vary", 5, 40, 15)
+        n_mutable = st.slider("Number of top-influence features allowed to vary", 1, len(pipeline.selected_feature_names), min(15, len(pipeline.selected_feature_names)))
 
     X_train, _ = state.get_training_artifacts()
     shap_explainer = state.get_shap_explainer(pipeline)
-    top_features = shap_explainer.global_importance(
-        X_train.sample(min(150, len(X_train)), random_state=42)
-    )["feature"].head(n_mutable).tolist()
+    top_features = state.global_importance(state.artifact_fingerprint())["feature"].head(n_mutable).tolist()
 
     try:
         dice_explainer = state.get_dice_explainer(pipeline)
         with st.spinner("Searching for counterfactuals..."):
-            result = dice_explainer.generate_counterfactuals(row, total_cfs=total_cfs, features_to_vary=top_features)
+            result = state.counterfactuals(state.artifact_fingerprint(), row, total_cfs, top_features, st.session_state.decision_threshold)
     except Exception:
         st.error(
             "The counterfactual engine (DiCE) is currently unavailable for this instance. "
@@ -59,8 +57,11 @@ def render() -> None:
             "No valid counterfactual was found within the permitted feature ranges and the allowed "
             "number of mutable features. Try increasing the number of features allowed to vary."
         )
+        if result.get("error"):
+            st.caption(f"Search detail: {result['error']}")
         return
 
+    st.caption("Model-valid alternatives, independently re-scored at the active threshold. Values are standardized model inputs. Physical actionability is unknown for every anonymous SECOM sensor; no potentially actionable sensor has been validated.")
     st.divider()
     for i, cf in enumerate(result["counterfactuals"]):
         st.markdown(f"#### Counterfactual {i + 1} — changes {cf['n_features_changed']} feature(s)")
@@ -80,7 +81,7 @@ def render() -> None:
             )
             st.dataframe(
                 changes_df.style.format({"Original Value": "{:.3f}", "Suggested Value": "{:.3f}", "Change": "{:+.3f}"}),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         st.markdown("")

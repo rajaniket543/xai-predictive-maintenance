@@ -58,13 +58,13 @@ def _dataset_tab(pipeline) -> None:
 
     col1, col2 = st.columns([3, 1])
     with col1:
-        chosen_idx = st.selectbox("Sample index", options=list(candidate_idx))
+        chosen_idx = st.selectbox("Sample index", options=list(candidate_idx), key="prediction_sample_id")
     with col2:
         st.write("")
         st.write("")
-        random_click = st.button("Random sample", use_container_width=True)
-    if random_click:
-        chosen_idx = candidate_idx.to_series().sample(1, random_state=None).iloc[0]
+        def choose_random():
+            st.session_state.prediction_sample_id = candidate_idx.to_series().sample(1).iloc[0]
+        st.button("Random sample", width="stretch", on_click=choose_random)
 
     true_label = "FAILURE" if y_test.loc[chosen_idx] == 1 else "NORMAL"
     st.caption(f"True historical outcome for this example: **{true_label}** (ground truth, for reference only).")
@@ -88,8 +88,11 @@ def _upload_tab(pipeline) -> None:
         st.error(f"Could not read this file as CSV: {exc}")
         return
 
+    if df.empty:
+        st.error("The CSV contains no data rows.")
+        return
     st.write(f"Loaded {len(df)} row(s).")
-    st.dataframe(df.head(5), use_container_width=True)
+    st.dataframe(df.head(5), width="stretch")
 
     row_choice = 0
     if len(df) > 1:
@@ -112,10 +115,10 @@ def _manual_tab(pipeline) -> None:
     )
 
     shap_explainer = state.get_shap_explainer(pipeline)
-    top_features = shap_explainer.global_importance(X_train.sample(min(200, len(X_train)), random_state=42))
+    top_features = state.global_importance(state.artifact_fingerprint())
     top_features = top_features["feature"].head(12).tolist()
 
-    template_raw = X_test_raw.median(numeric_only=True).to_frame().T
+    template_raw = state.raw_training_medians(state.artifact_fingerprint()).copy()
     template_raw.index = ["manual_entry"]
 
     cols = st.columns(3)
@@ -149,6 +152,13 @@ def render() -> None:
     if st.session_state.get("last_prediction") is not None:
         st.subheader("Latest Prediction")
         render_prediction_result(st.session_state.last_prediction)
+        st.subheader("Why did the model predict this?")
+        from components import contributor_bar_chart
+        explanation = state.local_shap(state.artifact_fingerprint(), st.session_state.selected_transformed_row)
+        contributors = explanation['top_contributors']
+        st.plotly_chart(contributor_bar_chart([c['feature'] for c in contributors], [c['shap_value'] for c in contributors],
+                         'Primary factors in this prediction', f"SHAP contribution ({state.shap_units()})"), width="stretch")
+        st.caption("Positive contributions increase the model's failure score; negative contributions decrease it. Sensor physical meanings are unknown.")
         disclaimer(
             "This prediction reflects patterns learned from historical SECOM data. It is a statistical "
             "estimate, not a certified engineering diagnosis — use it to prioritize inspection, not to "
@@ -160,10 +170,10 @@ def render() -> None:
         st.subheader("Prediction History (this session)")
         history_df = pd.DataFrame(st.session_state.prediction_history)
         display_cols = [
-            "timestamp", "source", "instance_id", "predicted_class",
+            "timestamp", "run_id", "model", "source", "instance_id", "predicted_class",
             "failure_probability", "risk_level", "threshold_used",
         ]
-        st.dataframe(history_df[display_cols].iloc[::-1], use_container_width=True, hide_index=True)
+        st.dataframe(history_df[display_cols].iloc[::-1], width="stretch", hide_index=True)
         st.download_button(
             "Download history as CSV",
             data=history_df.to_csv(index=False).encode("utf-8"),

@@ -155,3 +155,20 @@ time-series-aware modeling, deep learning, digital twins, and domain-specific
 causal analysis validated by process engineers.
         """
     )
+
+    from views.evaluation import FAIRNESS
+    st.info(FAIRNESS)
+    with st.expander("XAI experiment protocol and viva guide", expanded=True):
+        st.markdown("""
+**Workflow:** Data → Model → Prediction → Explanation → Evaluation → Intervention → Re-evaluation → Decision support.
+
+- **Faithfulness:** replace five highest-|SHAP| sensors with training medians; compare absolute probability change with 30 random five-sensor controls. A negative result is possible.
+- **Fidelity:** LIME's weighted neighborhood training R², not an independent held-out score.
+- **Stability / robustness:** compare SHAP vectors with cosine, absolute-rank correlation, and top-5 overlap at 0%, 1%, 5%, 10% of training SD. Separately measure unchanged prediction rate.
+- **Consistency:** SHAP vs LIME top-5 Jaccard and rank agreement. Different mechanisms and units can produce disagreement.
+- **Selection / ablation:** rank training explanations from an all-cleaned-feature model; retain Top-40 or remove Top-5; retrain with identical classifier settings and evaluate on the existing test split at fixed 0.5.
+- **Shift:** synthetic +0.5 training SD offset on five influential features, with labels held fixed as a stress-test assumption.
+- **Confidence:** max(p,1−p) is uncalibrated and is not explanation reliability.
+- **Validity:** threshold selection uses training-only CV; benchmark tuning estimates are not nested CV. One split and a small XAI sample limit generalization.
+- **Human usefulness / impact:** workflow demonstrated; no user study, protected-group fairness result, causal benefit, or real-world maintenance impact is claimed.
+""")

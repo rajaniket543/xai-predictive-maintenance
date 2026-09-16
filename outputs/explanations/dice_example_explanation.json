@@ -3,71 +3,62 @@
   "original_class": "FAILURE",
   "counterfactuals": [
     {
-      "failure_probability": 0.4448263347148895,
+      "failure_probability": 0.4079974293708801,
       "predicted_class": "NORMAL",
-      "n_features_changed": 2,
+      "n_features_changed": 3,
+      "model_valid": true,
+      "threshold": 0.4699999999999999,
       "changes": [
         {
-          "feature": "Feature_131",
-          "original_value": 0.019951743506154397,
-          "counterfactual_value": -1.5338734,
-          "delta": -1.5538251435061545
+          "feature": "Feature_33",
+          "original_value": -0.2703782035401827,
+          "counterfactual_value": -0.48903301,
+          "delta": -0.21865480645981727,
+          "actionability": "Unknown \u2014 anonymous sensor"
         },
         {
-          "feature": "Feature_510",
-          "original_value": 1.881658279526667,
-          "counterfactual_value": -0.84932687,
-          "delta": -2.730985149526667
+          "feature": "Feature_56",
+          "original_value": 0.7170758199881881,
+          "counterfactual_value": -2.73612284,
+          "delta": -3.453198659988188,
+          "actionability": "Unknown \u2014 anonymous sensor"
+        },
+        {
+          "feature": "Feature_103",
+          "original_value": 2.094915643907859,
+          "counterfactual_value": -1.78526905,
+          "delta": -3.880184693907859,
+          "actionability": "Unknown \u2014 anonymous sensor"
         }
       ]
     },
     {
-      "failure_probability": 0.45759835839271545,
+      "failure_probability": 0.4110719859600067,
       "predicted_class": "NORMAL",
       "n_features_changed": 3,
+      "model_valid": true,
+      "threshold": 0.4699999999999999,
       "changes": [
         {
           "feature": "Feature_65",
           "original_value": 1.8143466823179075,
-          "counterfactual_value": -1.35412049,
-          "delta": -3.168467172317907
+          "counterfactual_value": -1.21382626,
+          "delta": -3.028172942317908,
+          "actionability": "Unknown \u2014 anonymous sensor"
+        },
+        {
+          "feature": "Feature_121",
+          "original_value": 0.8722310944349423,
+          "counterfactual_value": -1.99004087,
+          "delta": -2.8622719644349424,
+          "actionability": "Unknown \u2014 anonymous sensor"
         },
         {
           "feature": "Feature_131",
           "original_value": 0.019951743506154397,
-          "counterfactual_value": -1.3265139,
-          "delta": -1.3464656435061544
-        },
-        {
-          "feature": "Feature_143",
-          "original_value": -0.9112404365544525,
-          "counterfactual_value": -1.45188552,
-          "delta": -0.5406450834455475
-        }
-      ]
-    },
-    {
-      "failure_probability": 0.27044835686683655,
-      "predicted_class": "NORMAL",
-      "n_features_changed": 3,
-      "changes": [
-        {
-          "feature": "Feature_91",
-          "original_value": 0.5123188489250788,
-          "counterfactual_value": -2.567966223,
-          "delta": -3.0802850719250787
-        },
-        {
-          "feature": "Feature_131",
-          "original_value": 0.019951743506154397,
-          "counterfactual_value": -1.5452212,
-          "delta": -1.5651729435061545
-        },
-        {
-          "feature": "Feature_510",
-          "original_value": 1.881658279526667,
-          "counterfactual_value": -0.86587241,
-          "delta": -2.747530689526667
+          "counterfactual_value": -1.21916,
+          "delta": -1.2391117435061545,
+          "actionability": "Unknown \u2014 anonymous sensor"
         }
       ]
     }

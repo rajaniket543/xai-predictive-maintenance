@@ -23,12 +23,12 @@ def render() -> None:
         return
 
     row = st.session_state.selected_transformed_row
-    num_features = st.slider("Number of features to explain", min_value=5, max_value=20, value=10)
+    num_features = st.slider("Number of features to explain", min_value=5, max_value=min(20, len(pipeline.selected_feature_names)), value=min(10, len(pipeline.selected_feature_names)))
 
     try:
         lime_explainer = state.get_lime_explainer(pipeline)
         with st.spinner("Computing LIME explanation..."):
-            result = lime_explainer.explain_instance(pipeline.model, row, num_features=num_features)
+            result = state.local_lime(state.artifact_fingerprint(), row, num_features)
     except Exception:
         st.error("The LIME explainer could not explain this instance. Try selecting a different sample.")
         return
@@ -42,6 +42,8 @@ def render() -> None:
             "simple local model approximates the real model's behavior near this instance."
         )
 
+    st.metric("LIME surrogate at this sample", f"{result['surrogate_probability']:.3f}")
+    st.caption("R² is measured on the weighted neighborhood used to fit the surrogate; it is not held-out fidelity. The surrogate output is unconstrained and can exceed [0,1].")
     contributors = result["contributors"]
     fig = contributor_bar_chart(
         [c["condition"] for c in contributors],
@@ -49,7 +51,7 @@ def render() -> None:
         title="LIME Local Feature Contributions",
         x_label="Contribution to failure prediction",
     )
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
     with st.expander("Plain-language explanation"):
         lines = []

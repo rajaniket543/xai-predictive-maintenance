@@ -17,7 +17,7 @@ To keep suggestions realistic:
     features, so counterfactuals stay sparse and don't suggest changing
     dozens of sensors at once.
   * Returned counterfactuals are sorted by how many features they change, so
-    the sparsest (most actionable) alternative is surfaced first.
+    the sparsest alternative is surfaced first.
 
 The "random" search method is used because it works with any scikit-learn
 classifier exposing `predict_proba` (including tree ensembles), unlike the
@@ -78,6 +78,7 @@ class DiCEExplainer:
         total_cfs: int = 3,
         features_to_vary: list[str] | None = None,
         random_state: int = RANDOM_SEED,
+        threshold: float = 0.5,
     ) -> dict[str, Any]:
         if len(query_instance) != 1:
             raise ValueError("generate_counterfactuals expects a single-row DataFrame.")
@@ -90,7 +91,8 @@ class DiCEExplainer:
             cf_result = self.dice.generate_counterfactuals(
                 query,
                 total_CFs=total_cfs,
-                desired_class="opposite",
+                desired_class=int(proba_original < threshold),
+                stopping_threshold=threshold,
                 features_to_vary=vary,
                 permitted_range=self.permitted_range,
                 random_seed=random_state,
@@ -99,7 +101,7 @@ class DiCEExplainer:
             logger.warning("DiCE could not generate counterfactuals: %s", exc)
             return {
                 "original_probability": proba_original,
-                "original_class": CLASS_NAMES[int(proba_original >= 0.5)],
+                "original_class": CLASS_NAMES[int(proba_original >= threshold)],
                 "counterfactuals": [],
                 "error": str(exc),
             }
@@ -113,6 +115,8 @@ class DiCEExplainer:
                 cf_input = pd.DataFrame([cf_row[self.feature_names].astype(float)], columns=self.feature_names)
                 proba_cf = float(self.model.predict_proba(cf_input)[0, 1])
 
+                if (proba_cf >= threshold) == (proba_original >= threshold):
+                    continue  # Independently verify every returned candidate.
                 changes = []
                 for f in self.feature_names:
                     original_val = float(original_row[f])
@@ -124,14 +128,17 @@ class DiCEExplainer:
                                 "original_value": original_val,
                                 "counterfactual_value": new_val,
                                 "delta": new_val - original_val,
+                                "actionability": "Unknown — anonymous sensor",
                             }
                         )
 
                 counterfactuals.append(
                     {
                         "failure_probability": proba_cf,
-                        "predicted_class": CLASS_NAMES[int(proba_cf >= 0.5)],
+                        "predicted_class": CLASS_NAMES[int(proba_cf >= threshold)],
                         "n_features_changed": len(changes),
+                        "model_valid": True,
+                        "threshold": threshold,
                         "changes": changes,
                     }
                 )
@@ -139,7 +146,7 @@ class DiCEExplainer:
 
         return {
             "original_probability": proba_original,
-            "original_class": CLASS_NAMES[int(proba_original >= 0.5)],
+            "original_class": CLASS_NAMES[int(proba_original >= threshold)],
             "counterfactuals": counterfactuals,
         }
 

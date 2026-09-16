@@ -4,31 +4,31 @@ Failure probability: 99.8%
 Important factors (LIME local approximation):
 
 Feature_103  (Feature_103 > 0.53)
-Contribution: +0.1474
+Contribution: +0.1323
 
 Feature_65  (Feature_65 > 0.40)
-Contribution: +0.1049
+Contribution: +0.1078
 
 Feature_132  (Feature_132 > 0.73)
-Contribution: -0.0695
-
-Feature_91  (-0.01 < Feature_91 <= 0.54)
-Contribution: +0.0602
+Contribution: -0.0701
 
 Feature_70  (Feature_70 <= -0.65)
-Contribution: +0.0537
-
-Feature_131  (-0.03 < Feature_131 <= 0.52)
-Contribution: +0.0530
-
-Feature_2  (Feature_2 > 0.60)
-Contribution: -0.0480
+Contribution: +0.0634
 
 Feature_137  (Feature_137 > 0.76)
-Contribution: -0.0476
+Contribution: -0.0519
+
+Feature_131  (-0.03 < Feature_131 <= 0.52)
+Contribution: +0.0490
 
 Feature_412  (Feature_412 <= -0.68)
-Contribution: -0.0446
+Contribution: -0.0486
+
+Feature_125  (Feature_125 <= -0.75)
+Contribution: +0.0426
 
 Feature_247  (Feature_247 > -0.23)
-Contribution: +0.0418
+Contribution: +0.0398
+
+Feature_34  (-0.28 < Feature_34 <= -0.16)
+Contribution: +0.0393

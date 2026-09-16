@@ -50,11 +50,13 @@ def probability_gauge(probability: float, threshold: float) -> go.Figure:
 
 
 def render_prediction_result(result: dict[str, Any]) -> None:
+    p = result["failure_probability"]
+    st.caption(f"Model confidence: {max(p, 1-p):.1%} · max(p, 1−p), uncalibrated; not an explanation reliability score. Active threshold: {result['threshold_used']:.2f}")
     col1, col2 = st.columns([1, 1.3])
     with col1:
         st.plotly_chart(
             probability_gauge(result["failure_probability"], result["threshold_used"]),
-            use_container_width=True,
+            width="stretch",
             config={"displayModeBar": False},
         )
     with col2:

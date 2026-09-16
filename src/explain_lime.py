@@ -24,6 +24,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
 
 from src.utils import CLASS_NAMES, RANDOM_SEED, get_logger
@@ -39,6 +40,7 @@ class LIMEExplainer:
         class_names: tuple[str, str] = (CLASS_NAMES[0], CLASS_NAMES[1]),
         random_state: int = RANDOM_SEED,
     ):
+        self.random_state = random_state
         self.feature_names = feature_names or list(training_data.columns)
         self.class_names = list(class_names)
         self._feature_names_by_length = sorted(self.feature_names, key=len, reverse=True)
@@ -61,9 +63,12 @@ class LIMEExplainer:
         if len(x_row) != 1:
             raise ValueError("explain_instance expects a single-row DataFrame.")
 
+        # Reset the RNG so reruns explain the same neighborhood.
+        self.explainer.random_state = np.random.RandomState(self.random_state)
+        self.explainer.discretizer.random_state = self.explainer.random_state
         lime_exp = self.explainer.explain_instance(
             x_row.iloc[0].values,
-            model.predict_proba,
+            lambda values: model.predict_proba(pd.DataFrame(values, columns=self.feature_names)),
             num_features=num_features,
         )
         proba = float(model.predict_proba(x_row)[0, 1])
@@ -85,6 +90,7 @@ class LIMEExplainer:
             "predicted_class": CLASS_NAMES[predicted_label],
             "failure_probability": proba,
             "local_model_r2": float(lime_exp.score) if lime_exp.score is not None else None,
+            "surrogate_probability": float(np.asarray(lime_exp.local_pred).ravel()[0]),
             "contributors": contributors,
             "lime_explanation_object": lime_exp,
         }

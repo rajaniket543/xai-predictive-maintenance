@@ -60,14 +60,14 @@ def render() -> None:
         col1, col2 = st.columns([1, 1.2])
         with col1:
             st.subheader("Confusion Matrix")
-            st.plotly_chart(_confusion_matrix_figure(y_test, y_pred), use_container_width=True, config={"displayModeBar": False})
+            st.plotly_chart(_confusion_matrix_figure(y_test, y_pred), width="stretch", config={"displayModeBar": False})
         with col2:
             st.subheader("Classification Report")
             report = classification_report(
                 y_test, y_pred, target_names=[CLASS_NAMES[0], CLASS_NAMES[1]], output_dict=True, zero_division=0
             )
             report_df = pd.DataFrame(report).T.round(3)
-            st.dataframe(report_df, use_container_width=True)
+            st.dataframe(report_df, width="stretch")
         st.caption(
             "In predictive maintenance, a **false negative** (a real failure predicted as normal) is "
             "typically far costlier than a **false positive** (an unnecessary inspection) — a missed "
@@ -87,7 +87,7 @@ def render() -> None:
             fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines", name="Random", line=dict(color="#94A3B8", dash="dash")))
             fig.update_layout(title="ROC Curve", xaxis_title="False Positive Rate", yaxis_title="True Positive Rate",
                                template="plotly_white", height=400, margin=dict(l=10, r=10, t=40, b=10))
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
         with col2:
             from sklearn.metrics import average_precision_score
 
@@ -98,7 +98,7 @@ def render() -> None:
             fig.add_hline(y=baseline, line_dash="dash", line_color="#94A3B8", annotation_text=f"Baseline ({baseline:.3f})")
             fig.update_layout(title="Precision-Recall Curve", xaxis_title="Recall", yaxis_title="Precision",
                                template="plotly_white", height=400, margin=dict(l=10, r=10, t=40, b=10))
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
         st.caption(
             "PR-AUC is the more informative curve here: with only "
             f"{baseline:.1%} of examples being real failures, ROC-AUC can look deceptively strong even "
@@ -108,6 +108,7 @@ def render() -> None:
 
     with tab_threshold:
         st.subheader("Precision / Recall / F1 vs. Decision Threshold")
+        st.caption("Test-set sweep is descriptive only. Do not choose the operational threshold from this chart; the saved threshold uses training-only out-of-fold predictions.")
         thresh_df = threshold_analysis(y_test.values, y_proba)
         fig = go.Figure()
         for col, color in [("precision", "#2563EB"), ("recall", "#DC2626"), ("f1", "#16A34A")]:
@@ -115,23 +116,28 @@ def render() -> None:
         fig.add_vline(x=threshold, line_dash="dash", line_color="#0F172A", annotation_text=f"Current = {threshold:.2f}")
         fig.update_layout(template="plotly_white", xaxis_title="Decision threshold", yaxis_title="Score",
                            height=420, margin=dict(l=10, r=10, t=20, b=10))
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
         st.caption(
-            f"The default 0.5 threshold is not assumed optimal. F1-optimal threshold on the test set: "
+            f"The default 0.5 threshold is not assumed optimal. F1 threshold selected on training-only out-of-fold predictions: "
             f"**{meta['best_f1_threshold']:.2f}**. Threshold achieving ≥80% recall with the best "
             f"available precision: **{meta['high_recall_threshold']:.2f}** — use the slider above to "
             "explore the trade-off between missed failures and false alarms directly."
         )
 
     with tab_comparison:
+        st.caption("Historical training benchmark for the original model-selection pipeline. For the active saved run and repeated experiments, use Run Comparison.")
         comparison = state.get_model_comparison()
         if not comparison:
             st.info("Model comparison data not found.")
         else:
+            st.subheader("Baseline model benchmark · training cross-validation")
+            baseline = pd.DataFrame(comparison.get("baseline_comparison", []))
+            st.dataframe(baseline.round(4), width="stretch", hide_index=True)
+            st.caption("Five stratified training folds; preprocessing and resampling refit inside every fold. PR-AUC denotes average precision. Tuned results below reuse tuning folds and are selection estimates, not independent generalization estimates.")
             st.subheader("Tuned Model Comparison")
             tuned_df = pd.DataFrame(comparison.get("tuned_comparison", []))
             if not tuned_df.empty:
-                st.dataframe(tuned_df.round(3), use_container_width=True, hide_index=True)
+                st.dataframe(tuned_df.round(3), width="stretch", hide_index=True)
                 metric_cols = ["accuracy", "precision", "recall", "f1", "roc_auc", "pr_auc"]
                 melted = tuned_df.melt(id_vars="model", value_vars=metric_cols, var_name="metric", value_name="score")
                 fig = go.Figure()
@@ -140,13 +146,13 @@ def render() -> None:
                     fig.add_trace(go.Bar(x=sub["metric"], y=sub["score"], name=model_name))
                 fig.update_layout(barmode="group", template="plotly_white", height=420,
                                    yaxis=dict(range=[0, 1]), margin=dict(l=10, r=10, t=20, b=10))
-                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+                st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
             st.subheader("Class-Imbalance Strategy Comparison")
             imbalance_df = pd.DataFrame(comparison.get("imbalance_strategy_comparison", []))
             if not imbalance_df.empty:
-                st.dataframe(imbalance_df.round(3), use_container_width=True, hide_index=True)
+                st.dataframe(imbalance_df.round(3), width="stretch", hide_index=True)
                 st.caption(
-                    f"**{meta['imbalance_strategy']}** was selected for the final pipeline based on this "
+                    "The original pipeline selected its sampling strategy using this "
                     "comparison (evaluated via 5-fold stratified cross-validation on the training set only)."
                 )

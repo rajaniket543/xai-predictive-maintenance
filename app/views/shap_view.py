@@ -31,7 +31,7 @@ def render() -> None:
         X_train, _ = state.get_training_artifacts()
         shap_explainer = state.get_shap_explainer(pipeline)
         sample = X_train.sample(min(150, len(X_train)), random_state=42)
-        importance_df = shap_explainer.global_importance(sample).head(20)
+        importance_df = state.global_importance(state.artifact_fingerprint()).head(20)
 
         fig = contributor_bar_chart(
             importance_df["feature"].tolist(),
@@ -39,16 +39,16 @@ def render() -> None:
             title="Top 20 Features by Mean |SHAP Value|",
             x_label="Mean |SHAP value|",
         )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
-        summary_path = EXPLANATIONS_DIR / "shap_summary.png"
-        if summary_path.exists():
+        summary_path = state.active_outputs() / "explanations" / "shap_summary.png"
+        if summary_path.exists() and state.get_evaluation() is not None:
             st.subheader("SHAP Summary Plot (beeswarm)")
             st.caption(
                 "Each point is one training example. Color shows whether that feature's value was "
                 "high (red) or low (blue) for that example; position shows the resulting SHAP value."
             )
-            st.image(str(summary_path), use_container_width=True)
+            st.image(str(summary_path), width="stretch")
 
     with tab_local:
         st.subheader("Local Explanation — Current Instance")
@@ -59,13 +59,13 @@ def render() -> None:
         row = st.session_state.selected_transformed_row
         try:
             shap_explainer = state.get_shap_explainer(pipeline)
-            result = shap_explainer.local_explanation(row, top_n=10)
+            result = state.local_shap(state.artifact_fingerprint(), row)
         except Exception:
             st.error("The SHAP explainer could not explain this instance. Try selecting a different sample.")
             return
 
         st.markdown(
-            f"**Prediction:** {result['predicted_class']}  \n"
+            f"**Prediction:** {('FAILURE' if result['failure_probability'] >= st.session_state.decision_threshold else 'NORMAL')}  \n"
             f"**Failure probability:** {result['failure_probability']:.1%}  \n"
             f"**Base value (average model output):** {result['base_value']:.3f}"
         )
@@ -75,9 +75,9 @@ def render() -> None:
             [f"{c['feature']} = {c['feature_value']:.3g}" for c in contributors],
             [c["shap_value"] for c in contributors],
             title="Top Contributing Factors (SHAP)",
-            x_label="SHAP value (impact on failure probability)",
+            x_label=f"SHAP contribution ({state.shap_units()})",
         )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
         with st.expander("Plain-language explanation"):
             lines = []

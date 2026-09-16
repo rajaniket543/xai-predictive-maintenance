@@ -22,6 +22,12 @@ CHART_COLORS = {
 
 _CSS = """
 <style>
+.stApp { background: #f7f9fc; color: #14243b; }
+section[data-testid="stSidebar"] { background: #edf2f8; border-right: 1px solid #dce4ef; }
+.workflow { background: #14243b; color: #e2eaf7; padding: 1.2rem 1.5rem; border-radius: 12px; font-size: .78rem; letter-spacing: .05em; line-height: 2; margin: .8rem 0; }
+[data-testid="stMetric"] { background: white; padding: 1rem; border: 1px solid #e0e7ef; border-radius: 12px; }
+[data-testid="stPlotlyChart"] { border: 1px solid #e0e7ef; border-radius: 12px; background: white; padding: .4rem; }
+[data-testid="stBaseButton-primary"], [data-testid="stBaseButton-primaryFormSubmit"] { background: #2563eb; border-radius: 9px; }
 .block-container {
     padding-top: 2rem;
     padding-bottom: 3rem;
@@ -47,10 +53,11 @@ h1, h2, h3 {
 }
 
 .metric-card {
-    background: var(--secondary-background-color, #F1F5F9);
+    background: white;
     border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 14px;
     padding: 1.1rem 1.3rem;
+    min-height: 140px;
     height: 100%;
 }
 .metric-card .label {
@@ -62,7 +69,7 @@ h1, h2, h3 {
     margin-bottom: 0.3rem;
 }
 .metric-card .value {
-    font-size: 1.65rem;
+    font-size: 1.45rem;
     font-weight: 700;
     color: inherit;
     line-height: 1.15;

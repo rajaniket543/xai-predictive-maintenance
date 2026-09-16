@@ -637,9 +637,9 @@
     "Feature_573",
     "Feature_589"
   ],
-  "chosen_threshold": 0.61,
-  "best_f1_threshold": 0.61,
-  "high_recall_threshold": 0.06,
+  "chosen_threshold": 0.4699999999999999,
+  "best_f1_threshold": 0.4699999999999999,
+  "high_recall_threshold": 0.05,
   "imbalance_strategy": "smoteenn",
   "hyperparameters": {
     "classifier__colsample_bytree": 0.9768807022739411,
@@ -649,16 +649,16 @@
     "classifier__subsample": 0.6063865008880857
   },
   "test_metrics": {
-    "accuracy": 0.8630573248407644,
-    "precision": 0.21052631578947367,
+    "accuracy": 0.8248407643312102,
+    "precision": 0.16,
     "recall": 0.38095238095238093,
-    "f1": 0.2711864406779661,
+    "f1": 0.22535211267605634,
     "roc_auc": 0.734763529985373,
     "pr_auc": 0.20057305018322205
   },
   "confusion_matrix": {
-    "tn": 263,
-    "fp": 30,
+    "tn": 251,
+    "fp": 42,
     "fn": 13,
     "tp": 8
   },
@@ -671,5 +671,6 @@
   "n_test": 314,
   "dataset_failure_rate": 0.06636885768985322,
   "n_raw_features": 590,
-  "n_selected_features": 40
+  "n_selected_features": 40,
+  "threshold_source": "training-only out-of-fold predictions (5 folds)"
 }

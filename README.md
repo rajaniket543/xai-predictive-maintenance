@@ -1,478 +1,183 @@
-# Explainable AI-Based Predictive Maintenance System for Manufacturing
+# Predictive Maintenance XAI
 
-**Using the SECOM Dataset, SHAP, LIME, and DiCE**
+Explainable AI for trustworthy manufacturing failure prediction.
 
-A final-year Computer Science project: an end-to-end machine learning system that predicts
-semiconductor manufacturing failures from sensor data and explains every prediction with three
-complementary explainable-AI techniques, presented through an interactive Streamlit dashboard.
+**Data → Model → Prediction → Explanation → Explanation evaluation → Explanation-guided analysis → Re-evaluation → Decision support**
 
-> All metrics, figures, and example explanations in this repository are generated from the real
-> [UCI SECOM dataset](https://archive.ics.uci.edu/dataset/179/secom) by running `train_pipeline.py`
-> end to end — nothing is fabricated or hand-typed.
+This project uses the included SECOM manufacturing dataset, the existing scikit-learn/imbalanced-learn training pipeline, an XGBoost classifier, optional saved model runs, SHAP, LIME, DiCE, and a 14-page Streamlit analytics application. All dashboard results come from executed models or versioned experiment reports. No fairness, human usefulness, causal benefit, or maintenance-impact study is invented.
 
----
+## Run the application
 
-## Table of Contents
-
-1. [Project Overview](#1-project-overview)
-2. [Problem Statement](#2-problem-statement)
-3. [Objectives](#3-objectives)
-4. [Dataset](#4-dataset)
-5. [Methodology](#5-methodology)
-6. [Architecture](#6-architecture)
-7. [Preprocessing](#7-preprocessing)
-8. [Feature Selection](#8-feature-selection)
-9. [Class Imbalance](#9-class-imbalance)
-10. [Models](#10-models)
-11. [Evaluation](#11-evaluation)
-12. [Explainable AI](#12-explainable-ai)
-13. [SHAP](#13-shap)
-14. [LIME](#14-lime)
-15. [DiCE](#15-dice)
-16. [Dashboard](#16-dashboard)
-17. [Installation](#17-installation)
-18. [Usage](#18-usage)
-19. [Project Structure](#19-project-structure)
-20. [Limitations](#20-limitations)
-21. [Future Scope](#21-future-scope)
-22. [Conclusion](#22-conclusion)
-23. [Testing Checklist](#23-testing-checklist)
-
----
-
-## 1. Project Overview
-
-Manufacturing lines generate large volumes of sensor/process data. Predictive maintenance uses
-this data to flag likely failures *before* they happen, so inspection or intervention can be
-scheduled proactively instead of reactively. Black-box predictions, however, are hard for a
-process engineer to act on or trust. This project builds a **failure classifier** on the SECOM
-semiconductor manufacturing dataset and pairs every prediction with three explanations —
-**SHAP**, **LIME**, and **DiCE** — so a user sees not just *what* the model predicts, but *why*,
-and *what would need to change*.
-
-## 2. Problem Statement
-
-Given 590 anonymized sensor/process measurements from a semiconductor manufacturing line, predict
-whether a given production run will **fail**, and provide a human-understandable explanation for
-that prediction. The dataset is small (1,567 examples), high-dimensional, has structured missing
-values, and is **severely imbalanced** (~6.6% failures) — all of which must be handled explicitly
-and honestly rather than assumed away.
-
-## 3. Objectives
-
-- Build a reproducible, leakage-free ML pipeline from raw SECOM data to a deployed prediction.
-- Handle missing data, feature redundancy, and class imbalance with justified, evidence-based
-  choices rather than defaults.
-- Compare multiple models on metrics appropriate for imbalanced classification (not accuracy alone).
-- Explain every prediction with SHAP (global + local attribution), LIME (local surrogate), and
-  DiCE (counterfactuals), and be explicit about what each method does and does not prove.
-- Present the whole system through a professional, interactive dashboard suitable for a live
-  final-year project demonstration.
-
-## 4. Dataset
-
-[SECOM](https://archive.ics.uci.edu/dataset/179/secom) (UCI Machine Learning Repository): 1,567
-examples from a real semiconductor manufacturing process, 590 anonymized sensor/process
-measurements per example, and a pass/fail label with a timestamp.
-
-**Actual measured characteristics of this dataset** (see `outputs/metrics/dataset_diagnostics.json`
-and `notebooks/exploratory_analysis.ipynb` for the full computation):
-
-| Property | Value |
-|---|---|
-| Rows | 1,567 |
-| Raw features | 590 |
-| Failures | 104 (6.64%) — imbalance ratio ≈ 14.1 : 1 |
-| Duplicate rows | 0 |
-| Missing cells | 41,951 (4.54% of all cells) |
-| Columns with any missing values | 538 / 590 |
-| Columns with >55% missing | 24 |
-| Constant (zero-variance) columns | 116 |
-
-### Dataset placement
-
-```text
-data/
-    secom.data          # feature matrix, whitespace-separated, "NaN" = missing
-    secom_labels.data    # "<label> <quoted timestamp>" per line, label ∈ {-1, 1}
-```
-
-If these files are not present, `src/data_loader.py` raises a clear `FileNotFoundError` with
-download instructions. To obtain them:
+Python 3.12 was used for verification. From this repository:
 
 ```bash
-mkdir -p data
-curl -o data/secom.data https://archive.ics.uci.edu/ml/machine-learning-databases/secom/secom.data
-curl -o data/secom_labels.data https://archive.ics.uci.edu/ml/machine-learning-databases/secom/secom_labels.data
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m streamlit run app/app.py
 ```
 
-Paths are configurable via `src/utils.py: SECOM_DATA_PATH` / `SECOM_LABELS_PATH`, or by passing
-explicit paths to `load_secom_dataset(data_path=..., labels_path=...)`.
+Open http://localhost:8501. Dataset, fitted models, and experiment results are included; training is not required to demonstrate them.
 
-## 5. Methodology
-
-```text
-SECOM raw data (590 sensors)
-        │
-        ▼
-Drop columns >55% missing → median-impute → drop constant columns → standard-scale
-        │
-        ▼
-Correlation filtering (|r| > 0.95) → mutual-information SelectKBest (top 40)
-        │
-        ▼
-Class-imbalance strategy comparison (class-weighting vs. SMOTE vs. SMOTEENN)
-        │
-        ▼
-SMOTEENN oversampling (training folds only)
-        │
-        ▼
-Model comparison (6 algorithms, 5-fold stratified CV) → RandomizedSearchCV tuning (top 3 by PR-AUC)
-        │
-        ▼
-Final model selection (composite score: 0.4·recall + 0.3·F1 + 0.3·PR-AUC)
-        │
-        ▼
-Evaluation (confusion matrix, ROC, PR curve, threshold analysis)
-        │
-        ▼
-SHAP · LIME · DiCE explanations → risk banding → Streamlit dashboard
-```
-
-Every step that *learns* from data (imputation medians, scaler mean/std, correlation filter,
-mutual-information ranking, SMOTEENN, the classifier itself) is fit **only on the training split**,
-inside scikit-learn/imbalanced-learn `Pipeline` objects, and reused unchanged at prediction time.
-This is enforced structurally, not just by convention — see [§7](#7-preprocessing).
-
-## 6. Architecture
-
-```text
-xai-predictive-maintenance/
-├── data/                       # secom.data, secom_labels.data
-├── notebooks/
-│   └── exploratory_analysis.ipynb
-├── src/
-│   ├── utils.py                 # paths, config, logging, risk-level logic
-│   ├── data_loader.py           # load + diagnose the raw dataset
-│   ├── preprocessing.py         # missingness/constant-column drop, impute, scale
-│   ├── feature_selection.py     # correlation filter + mutual-information SelectKBest
-│   ├── train.py                 # pipeline assembly, model/imbalance comparison, tuning
-│   ├── evaluate.py               # metrics, confusion matrix, ROC/PR, threshold analysis
-│   ├── prediction.py            # single reusable inference pipeline + validation
-│   ├── explain_shap.py          # SHAP global + local explanations
-│   ├── explain_lime.py          # LIME local explanations
-│   └── explain_dice.py          # DiCE counterfactual explanations
-├── models/                      # trained artifacts (generated by train_pipeline.py)
-├── outputs/
-│   ├── figures/                 # EDA + evaluation plots (.png)
-│   ├── metrics/                 # metrics, comparisons (.csv / .json)
-│   └── explanations/            # example SHAP/LIME/DiCE outputs
-├── app/
-│   ├── app.py                   # Streamlit entry point (sidebar + navigation)
-│   ├── state.py                 # cached model/data loaders, session state
-│   ├── components.py            # reusable UI widgets (gauge, cards, bar charts)
-│   ├── styles.py                # CSS + theme constants
-│   └── views/                   # one file per dashboard page (7 pages)
-├── train_pipeline.py            # orchestrates the full pipeline end to end
-├── requirements.txt
-└── README.md
-```
-
-## 7. Preprocessing
-
-Implemented in `src/preprocessing.py`, as a `Pipeline` (pandas-in/pandas-out via
-`set_output(transform="pandas")`, so feature names survive every step for SHAP/LIME/DiCE):
-
-1. **`HighMissingnessDropper`** (threshold 55%, fit on train only) — columns missing this often
-   carry too little signal to impute reliably; imputing them would mostly inject a constant.
-   Drops 24/590 columns on this dataset.
-2. **`SimpleImputer(strategy="median")`** — median is robust to the skew/outliers typical of raw
-   sensor data, unlike the mean.
-3. **`ConstantColumnDropper`** — a sensor that never changes in the training data carries zero
-   predictive information and cannot be meaningfully explained by SHAP/LIME. Drops 116 columns.
-4. **`StandardScaler`** — needed for Logistic Regression and for SHAP's additivity assumptions;
-   harmless for the tree-based models.
-
-**Data leakage:** all four steps are fit exclusively on the training split (or the training fold,
-inside cross-validation) and only ever `.transform()` the test/validation data.
-
-## 8. Feature Selection
-
-Implemented in `src/feature_selection.py`:
-
-1. **`CorrelationFilter`** (|r| > 0.95, fit on train only) — greedily drops one feature from every
-   near-duplicate pair. Manufacturing sensor data often has clusters of sensors tracking the same
-   underlying process step; keeping every one just splits SHAP importance across near-identical
-   features and makes explanations harder to read.
-2. **`SelectKBest(mutual_info_classif, k=40)`** — mutual information captures non-linear
-   relationships (unlike a plain correlation filter) without needing a fitted model first.
-
-**PCA was deliberately not used.** Its components mix all 590 original sensors into synthetic
-axes; every SHAP/LIME/DiCE explanation would then read as "component_7 increased failure risk" —
-uninterpretable to a process engineer. Keeping named, original features is what makes the
-explanations in this project actionable.
-
-## 9. Class Imbalance
-
-`train_pipeline.py` (Phase 5) empirically compares three strategies via 5-fold stratified CV on a
-Random Forest probe model, rather than assuming SMOTE upfront (see
-`outputs/metrics/imbalance_strategy_comparison.csv`):
-
-| Strategy | Recall | Precision | F1 | PR-AUC |
-|---|---|---|---|---|
-| class_weight="balanced" | 0.024 | 0.167 | 0.042 | 0.131 |
-| SMOTE | 0.037 | 0.078 | 0.049 | 0.117 |
-| **SMOTEENN** | **0.265** | 0.115 | 0.159 | 0.124 |
-
-**SMOTEENN was selected** — it combines SMOTE oversampling with Edited Nearest Neighbours
-cleaning, which removes ambiguous majority-class points near the decision boundary. SECOM's
-failure class heavily overlaps the normal class in feature space; ENN's cleaning step addresses
-that overlap in a way plain oversampling alone does not, visible here as a large recall gain.
-`class_weight="balanced"` was evaluated too but not used as the pipeline-wide strategy since not
-every candidate model exposes an equivalent parameter (e.g. XGBoost uses `scale_pos_weight`
-instead of `class_weight`) — a sampler composes uniformly across every model in the comparison.
-
-Oversampling is applied **only inside the training folds**, via an `imbalanced-learn` `Pipeline`
-(which — unlike a plain scikit-learn `Pipeline` — applies its sampler step only during `.fit()`,
-never during `.transform()`/`.predict()`), so validation and test data are never resampled.
-
-## 10. Models
-
-Compared in `src/train.py`: a `DummyClassifier` (majority-class) baseline, Logistic Regression,
-Decision Tree, Random Forest, HistGradientBoosting, and XGBoost.
-
-**Why recall on the failure class matters more than accuracy here:** with a 6.6% failure rate, a
-model that always predicts "normal" already scores ~93% accuracy while catching zero real
-failures. In predictive maintenance, a **false negative** (a real failure predicted as normal) is
-typically far costlier than a **false positive** (one unnecessary inspection) — a missed failure
-can mean scrapped product, unplanned downtime, or a safety incident, while a false alarm only
-costs one avoidable inspection. Accuracy alone would reward exactly the wrong behavior here.
-
-**Hyperparameter tuning** (`src/train.py: tune_model`): `RandomizedSearchCV` with `StratifiedKFold`
-(5 folds) on the top 3 models by baseline PR-AUC, optimizing **PR-AUC (average precision)** rather
-than accuracy or plain ROC-AUC — PR-AUC is far more sensitive to how well the model ranks the rare
-positive class, which is exactly what matters for failure detection under this imbalance.
-
-**Final model selection** uses a documented composite score rather than "highest accuracy":
-
-```
-composite_score = 0.4 × recall + 0.3 × F1 + 0.3 × PR-AUC
-```
-
-deliberately weighting failure recall above raw accuracy or precision, consistent with the
-false-negative cost argument above.
-
-### Actual results on this run
-
-Tuned comparison (5-fold stratified CV on the training set; see
-`outputs/metrics/final_model_ranking.csv`):
-
-| Model | Accuracy | Precision | Recall | F1 | ROC-AUC | PR-AUC | Composite |
-|---|---|---|---|---|---|---|---|
-| **XGBoost (selected)** | 0.793 | 0.141 | **0.409** | **0.209** | 0.685 | **0.173** | **0.278** |
-| HistGradientBoosting | 0.819 | 0.126 | 0.288 | 0.174 | 0.695 | 0.171 | 0.218 |
-| Random Forest | 0.779 | 0.100 | 0.288 | 0.147 | 0.667 | 0.133 | 0.199 |
-
-**XGBoost** was selected. Tuned hyperparameters: `max_depth=4, n_estimators=364,
-learning_rate=0.068, subsample=0.606, colsample_bytree=0.977` (see `models/metadata.json`).
-
-## 11. Evaluation
-
-Full evaluation on the **held-out test set** (314 examples, never used for training or tuning),
-at the F1-optimal decision threshold of **0.61**:
-
-| Metric | Value |
-|---|---|
-| Accuracy | 0.863 |
-| Precision (failure) | 0.211 |
-| Recall (failure) | 0.381 |
-| F1 (failure) | 0.271 |
-| ROC-AUC | 0.735 |
-| PR-AUC | 0.201 |
-
-**Confusion matrix:** TN=263, FP=30, FN=13, **TP=8** — of 21 real failures in the test set, the
-model correctly flags 8.
-
-**Why PR-AUC over ROC-AUC here:** with only 6.7% of test examples being real failures, ROC-AUC can
-look deceptively strong even when the model misses most failures, because the false-positive rate
-stays low almost by default when negatives vastly outnumber positives. PR-AUC (0.201, vs. a
-0.067 no-skill baseline) is the more honest signal of how well the model ranks true failures
-above false alarms.
-
-**Threshold is not assumed to be 0.5.** `src/evaluate.py: threshold_analysis` sweeps thresholds
-from 0.05–0.95 and reports precision/recall/F1 at each (`outputs/metrics/threshold_analysis.csv`,
-`outputs/figures/threshold_analysis_xgboost.png`, and interactively on the dashboard's Model
-Performance page). On this run: F1-optimal threshold = **0.61**; the threshold achieving ≥80%
-recall with the best available precision is **0.06** — reflecting a real precision/recall
-trade-off: catching 80% of failures on this model means accepting many more false alarms.
-
-These numbers are modest in absolute terms — expected for SECOM, a widely used but genuinely hard
-benchmark (noisy, small, high-dimensional, severely imbalanced). They are reported as measured,
-not adjusted to look better.
-
-## 12. Explainable AI
-
-Three complementary methods, each answering a different question about the same prediction:
-
-| Method | Question Answered | Scope |
-|---|---|---|
-| **SHAP** | Which features contributed to this prediction, and by how much? | Global + local |
-| **LIME** | Which features locally influenced this specific prediction? | Local only |
-| **DiCE** | What would need to change for this prediction to flip? | Local, counterfactual |
-
-**All three describe model behavior, not verified real-world causality.** SHAP and LIME
-attributions reflect statistical patterns the model learned — not a proven physical
-cause-and-effect relationship between a sensor reading and an actual failure. DiCE counterfactuals
-are what-if scenarios produced by search, not guaranteed or physically validated maintenance
-instructions. Every explanation surface in the dashboard repeats this disclaimer explicitly.
-
-## 13. SHAP
-
-`src/explain_shap.py`. The explainer type is chosen automatically from the final model:
-`TreeExplainer` for tree-based models (used here, since XGBoost was selected — fast and exact),
-`LinearExplainer` for Logistic Regression, and a generic permutation-based `Explainer` otherwise.
-
-- **Global**: mean |SHAP value| per feature across a sample of training data → ranks which sensors
-  matter most to the model overall (`outputs/explanations/shap_global_importance.png`), plus the
-  standard SHAP beeswarm summary plot (`outputs/explanations/shap_summary.png`).
-- **Local**: for one instance, the top contributing features with signed SHAP values and plain-
-  language direction ("Feature_103 = 1.26 → increases failure probability"), generated only from
-  the model's real output — see `outputs/explanations/shap_example_explanation.txt` for an actual
-  generated example.
-
-## 14. LIME
-
-`src/explain_lime.py`, via `lime.lime_tabular.LimeTabularExplainer` with
-`discretize_continuous=True` (LIME's recommended setting for tabular data — more stable,
-human-readable conditions like `Feature_12 <= 0.31` than raw linear coefficients on differently-
-scaled sensor readings). For one instance, LIME perturbs the input, observes how the model's
-prediction changes, and fits a local linear surrogate — its coefficients are the reported
-contributions, valid only in the immediate neighborhood of that one instance (not a global rule).
-See `outputs/explanations/lime_example_explanation.txt` / `.png` for a real generated example.
-
-## 15. DiCE
-
-`src/explain_dice.py`, via `dice_ml` with `method="random"` (works with any scikit-learn classifier
-exposing `predict_proba`, including tree ensembles — unlike the gradient-based method, which
-needs a differentiable model). To keep suggestions realistic:
-
-- **`permitted_range`** bounds every feature to its **1st–99th percentile** of observed training
-  values (not raw min/max — a single sensor outlier in the training data would otherwise license
-  an unrealistically large suggested change).
-- **`features_to_vary`** defaults to a caller-supplied subset (in practice, the top SHAP-ranked
-  features) rather than all 40 selected features, keeping counterfactuals sparse.
-- Returned counterfactuals are sorted by **number of features changed**, surfacing the sparsest
-  (most actionable) alternative first.
-
-See `outputs/explanations/dice_example_explanation.txt` / `.json` for a real generated example —
-on this run, a genuine true-positive failure prediction (98% probability) is flipped to a 44%
-(non-failure) prediction by changing just 2 of the 40 selected features.
-
-## 16. Dashboard
-
-Streamlit app (`app/app.py`, run with `streamlit run app/app.py`), seven pages via
-`st.navigation`:
-
-1. **Dashboard** — project overview, dataset/model headline metrics, current session's prediction summary.
-2. **Predict Failure** — score an instance via three input modes (pick a real historical test
-   example, upload a CSV, or manually adjust the top SHAP-ranked sensors); shows a probability
-   gauge, risk badge, and recommended action; keeps a downloadable session prediction history.
-3. **SHAP Explanation** — global importance + beeswarm plot, and local explanation for whatever
-   instance was most recently predicted.
-4. **LIME Explanation** — local surrogate explanation for the current instance, with an
-   adjustable number of features.
-5. **Counterfactual Analysis** — DiCE what-if scenarios for the current instance, with sliders for
-   how many counterfactuals to generate and how many top-influence features may vary.
-6. **Model Performance** — confusion matrix, classification report, ROC/PR curves, an interactive
-   threshold-analysis chart, and the full model/imbalance-strategy comparison.
-7. **About / Methodology** — the content of this README's methodology section, in-app.
-
-The sidebar exposes the **decision threshold** and the **risk-level thresholds** (Low / Medium /
-High / Critical) as live, adjustable controls — explicitly labeled as configurable project demo
-thresholds, not scientifically validated maintenance standards, per Phase 14 of the project brief.
-
-## 17. Installation
-
-Requires Python 3.11+.
+To regenerate the XAI experiments (30 randomly sampled test cases by default):
 
 ```bash
-git clone <this-repository>
-cd xai-predictive-maintenance
-
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-
-pip install -r requirements.txt
+python run_experiments.py
+# Also re-execute all six baseline models using five training folds:
+python run_experiments.py --refresh-benchmark
+# Increase the explanation-evaluation sample size:
+python run_experiments.py --samples 100
 ```
 
-Place `secom.data` and `secom_labels.data` in `data/` (see [§4](#4-dataset) if you need to
-download them).
-
-## 18. Usage
+To retrain and tune the existing model pipeline from scratch:
 
 ```bash
-# 1. Run the full training pipeline (data → preprocessing → models → tuning →
-#    evaluation → SHAP/LIME/DiCE examples → saved artifacts). Takes ~2 minutes.
 python train_pipeline.py
-
-# 2. Launch the dashboard
-streamlit run app/app.py
+python run_experiments.py
 ```
 
-Re-running `train_pipeline.py` is fully reproducible (`RANDOM_SEED=42` throughout — splits,
-SMOTEENN, cross-validation folds, `RandomizedSearchCV`, and every model's `random_state`) and
-regenerates every artifact under `models/` and `outputs/`.
-
-To explore the raw dataset interactively:
+To save additional comparable model runs without replacing the original fitted model:
 
 ```bash
-jupyter lab notebooks/exploratory_analysis.ipynb
+python train_runs.py --models random_forest hist_gradient_boosting
+python run_experiments.py --run <saved-run-id>
 ```
 
-## 19. Project Structure
+The full tuning run is more expensive than the experiment runner. Neither duration nor improvement is guaranteed. The runner also corrects legacy test-selected thresholds using training-only out-of-fold predictions, without replacing the fitted classifier. Saved runs use the same raw train/test IDs as the original model and store their own model, preprocessing, metrics, predictions, and optional XAI reports under `models/runs/`. Changing data, source, model artifacts, or the runner invalidates the saved XAI report; the UI asks for regeneration rather than displaying stale results.
 
-See [§6 Architecture](#6-architecture) above for the annotated directory tree.
+## What the repository contains
 
-## 20. Limitations
+- `src/data_loader.py`: parses raw whitespace-delimited sensors, missing values, outcome labels, timestamps, and diagnostics.
+- `src/preprocessing.py`: training-fitted missingness filter (>55%), median imputation, constant removal, and standardization.
+- `src/feature_selection.py`: correlation filtering and mutual-information Top-40 selection for the existing deployed model.
+- `src/train.py`, `train_pipeline.py`: six-model benchmark, imbalance strategies, tuning, training-only threshold selection, evaluation, artifact generation.
+- `src/prediction.py`: shared raw-input validation, transformation, probability, and threshold logic.
+- `src/explain_shap.py`, `src/explain_lime.py`, `src/explain_dice.py`: existing explainers, now with deterministic LIME and independently checked counterfactuals.
+- **New:** `src/model_runs.py`: immutable saved model runs, original-model snapshots, common split signatures, and per-run predictions.
+- **New:** `src/xai_evaluation.py`: reproducible faithfulness, similarity, stability, consistency, confidence, and robustness evaluation.
+- **New:** `run_experiments.py`: reuses existing components for feature-selection/ablation retraining and synthetic distribution shift; writes actual evidence.
+- **New:** `train_runs.py`: command-line helper for saving additional model runs without overwriting the active original artifacts.
+- `app/app.py`, `app/state.py`, `app/components.py`, `app/styles.py`: navigation, artifact-aware caches, shared widgets, professional light theme.
+- `app/views/`: existing overview, prediction, benchmark, SHAP, LIME, counterfactual, and technical pages; **new** `dataset.py`, `evaluation.py`, and `model_runs.py` provide dataset, evaluation, robustness, guided analysis, decision support, model run training, and run comparison.
+- `.streamlit/config.toml`: consistent app theme and disabled usage telemetry.
+- `models/`: fitted classifier/preprocessor, training/test artifacts, metadata and benchmark records.
+- `outputs/metrics/xai_evaluation.json`: sample-level evidence, summaries, protocols, seed, timestamp, package versions, and artifact/code fingerprint.
+- `outputs/metrics/threshold_oof.csv`: training-only out-of-fold probabilities used for the corrected threshold.
+- `outputs/figures/`, `outputs/explanations/`: real generated charts and explanation examples.
+- `notebooks/exploratory_analysis.ipynb`: original exploratory notebook, retained.
+- **New:** `tests/test_system.py`, `tests/test_model_runs.py`, `tests/smoke_ui.py`, `tests/smoke_model_switch.py`, `tests/browser_smoke.py`: numerical integrity, saved-run isolation, all-page rendering, model-switch rendering, and browser demo checks.
 
-- SECOM is an older benchmark dataset; anonymized feature names (`Feature_103`, ...) do not map to
-  known physical sensors, which limits how actionable an explanation can be for a real engineer.
-- Severe class imbalance (6.6% failures) makes simultaneously high precision *and* high recall
-  hard to achieve on this dataset — visible directly in the reported test metrics (recall 0.381,
-  precision 0.211).
-- DiCE counterfactuals are statistically plausible, not necessarily physically achievable in a
-  real process — they are what-if search results, not engineering instructions.
-- SHAP/LIME explain **model behavior**, not necessarily the real physical cause of a failure.
-- This is a decision-support prototype, not a certified industrial control system. Real deployment
-  would need real-time sensor integration and every recommendation validated by a process
-  domain expert before acting on it.
-- The dataset represents one specific manufacturing line at one point in time; it does not
-  generalize to every manufacturing environment.
+The original architecture and fitted classifier were preserved. Existing UI files, explanation wrappers, training threshold selection, model metadata, output reports, and documentation were updated. No separate prediction pipeline, authentication service, or database was introduced.
 
-## 21. Future Scope
+## Data and modeling
 
-Real-time IoT sensor integration and streaming predictions; edge deployment; automated alerting
-integrated with maintenance-management systems; time-series-aware modeling (this project treats
-each run independently); deep learning approaches; digital twins; domain-specific causal analysis
-conducted jointly with process engineers; automated maintenance scheduling.
+The included dataset contains 1,567 runs, 590 anonymous sensors, 104 failures, and 41,951 missing cells. Raw labels -1/+1 map to normal=0/failure=1. No protected demographic fields exist. Timestamps are not prediction features.
 
-## 22. Conclusion
+The original seed-42 stratified split contains 1,253 training and 314 test examples. All learned preprocessing and resampling stay inside training folds. The deployed classifier uses 40 mutual-information-selected features. Benchmark candidates are Dummy, Logistic Regression, Decision Tree, Random Forest, HistGradientBoosting, and XGBoost. The original pipeline compares class weighting, SMOTE, and SMOTEENN, then chooses between the two sampler strategies for consistent application across models. The current model uses SMOTEENN.
 
-This project demonstrates a complete, honest, reproducible predictive-maintenance pipeline: real
-data with real missingness and real imbalance, preprocessing and feature selection chosen for
-genuine interpretability (not just accuracy), multiple models compared on failure-relevant
-metrics, and every prediction explained three complementary ways with their limitations stated
-explicitly rather than hidden. The measured results are modest — consistent with SECOM's known
-difficulty — and are reported as measured. The value of the project is in the rigor of the
-pipeline and the transparency of the explanations, not in an inflated accuracy number.
+PR-AUC means **average precision**, not trapezoidal PR area. Baseline benchmark metrics are five-fold training-CV averages. The historical tuned-model table reuses tuning folds, so it is a selection estimate, not nested-CV evidence. Hyperparameters were selected using training data; the final test set does not select features or thresholds.
 
-## 23. Testing Checklist
+**Validity correction:** the earlier implementation chose the threshold by maximizing test F1. It now uses five-fold training-only out-of-fold predictions, with the entire preprocessing/sampling/model pipeline refit in each fold. The corrected threshold is **0.47**. Interactive test threshold sweeps are descriptive and should not be used to choose a deployment threshold. The test set has already been inspected during project development, so results are retrospective benchmark evidence, not a fresh prospective validation.
 
-- [x] `python train_pipeline.py` runs end to end with no errors, using the real SECOM data (verified: ~128s, final model XGBoost).
-- [x] Data-leakage check: every fitted transformer (imputer, scaler, correlation filter, feature selector, sampler) is fit only on training folds.
-- [x] `streamlit run app/app.py` launches with no exceptions; all 7 pages verified to render in a real browser (Playwright).
-- [x] Predict Failure → SHAP / LIME / Counterfactual pages verified to pick up the same selected instance and render live explanations with no console/page errors.
-- [x] SHAP, LIME, and DiCE all verified against the real trained model (not mocked).
-- [x] `notebooks/exploratory_analysis.ipynb` executes end to end with 0 cell errors.
-- [x] No hard-coded absolute paths — all paths derive from `src/utils.py: PROJECT_ROOT`.
-- [x] Missing dataset / missing model artifacts raise clear, actionable errors instead of crashing.
+**Saved model runs:** the **Model Runs** page can archive the original fitted model and train additional untuned candidates, while **Run Comparison** compares only runs from the same dataset and split cohort. Activating a run is session-local and switches the shared prediction, SHAP, LIME, DiCE, and evaluation loaders together. XGBoost, HistGradientBoosting, and Logistic Regression SHAP values are shown in log-odds; Random Forest and Decision Tree SHAP values are shown in probability units.
+
+## Actual executed results
+
+Current XGBoost held-out test results, at threshold 0.47:
+
+| Accuracy | Precision | Recall | F1 | ROC-AUC | PR-AUC (AP) |
+|---:|---:|---:|---:|---:|---:|
+| 0.8248 | 0.1600 | 0.3810 | 0.2254 | 0.7348 | 0.2006 |
+
+These values are recorded in `models/metadata.json` and `outputs/metrics/final_evaluation.json`; UI values are loaded, never hardcoded. Recall remains modest: the model detects 8 of 21 test failures and misses 13.
+
+XAI experiment means across 30 random test samples:
+
+| Dimension | Actual value | Meaning |
+|---|---:|---|
+| Faithfulness | 0.3004 | Excess absolute probability change over random-feature controls |
+| LIME fidelity | 0.1442 | Distance-weighted neighborhood training R²; weak surrogate fit |
+| Stability | 0.9848 | SHAP cosine at 1% of training SD noise |
+| Consistency | 0.4779 | SHAP/LIME top-5 Jaccard similarity |
+| Robustness | 0.8994 | SHAP cosine at 10% of training SD noise |
+
+These measures have different meanings and are **not** averaged into a trust score. Strong SHAP stability does not establish model accuracy, causality, or operational reliability.
+
+## Experimental definitions
+
+**SHAP:** TreeSHAP for XGBoost, global training-sample importance and beeswarm, local signed contributions. XGBoost SHAP values are **log-odds**, not percentage-point probability changes. Base value plus all contributions reconstructs the model margin; applying the sigmoid reconstructs probability. The explainer also supports other existing tree and linear model families.
+
+**LIME fidelity:** discretized local conditions and signed coefficients; model probability compared with the linear surrogate output at the selected sample. Reported R² is LIME's distance-weighted score on the neighborhood used to fit it. This is not independently held-out fidelity. Unconstrained linear surrogate outputs may exceed [0,1]. Each explanation uses the same seed so repeated UI visits do not change the neighborhood.
+
+**Faithfulness:** for each sample, replace the top five absolute-SHAP features with their training medians. Compare the absolute probability change with the mean absolute probability change across 30 random sets of five features:
+
+```text
+faithfulness = |p(original) − p(top-5 replaced)|
+               − mean_random |p(original) − p(random-5 replaced)|
+```
+
+Negative values are retained. The random-control mean probability and mean absolute change are different quantities and displayed separately. Median replacement can break sensor correlations and create off-distribution inputs; this is a model sensitivity experiment, not causal evidence.
+
+**Stability / robustness:** add Gaussian noise scaled by training SD at 0%, 1%, 5%, and 10%. Reuse the same noise direction across magnitudes; do not clip (the 0% control is exact). Measure signed-vector cosine, absolute-value Spearman ranking correlation, top-5 overlap, probability change, and fraction of unchanged predicted classes. Model robustness and explanation robustness have separate charts. One noise draw per sample and a small sample size limit the inference.
+
+**Consistency:** compare SHAP and LIME on the same sample using top-5 overlap and Jaccard, plus absolute ranking correlation. LIME-unselected coefficients are zero-padded and create ranking ties. The two methods use different units, neighborhoods, and approximation mechanisms; disagreement is shown rather than hidden.
+
+**Confidence:** max(p,1−p), uncalibrated, grouped into predeclared low [0.5,0.7), medium [0.7,0.9), and high [0.9,1] bins. Current bin counts are 2, 4, and 24. Such small groups do not establish a general confidence–reliability relationship; empty bins are not fabricated.
+
+**Feature selection and ablation:** reuse the existing preprocessing, sampler, and classifier settings. Fit an all-cleaned-feature baseline (450 sensors; no correlation/MI reduction), rank SHAP on 150 **training** cases, then retrain with fixed Top-40 or with the Top-5 removed. Evaluate each at a fixed threshold of 0.5 on the same held-out split. Test outcomes do not choose K or the removed features.
+
+| Configuration | Features | F1 | Recall | ROC-AUC | PR-AUC |
+|---|---:|---:|---:|---:|---:|
+| All cleaned features | 450 | 0.2037 | 0.5238 | 0.6683 | 0.1232 |
+| SHAP Top-40 | 40 | 0.2041 | 0.2381 | 0.6551 | 0.1242 |
+| Remove SHAP Top-5 | 445 | 0.1593 | 0.4286 | 0.6390 | 0.1214 |
+
+Top-40 does **not** provide a general performance improvement: recall drops substantially. Ablation reveals dependence, not proof that a feature is spurious. “Potentially spurious dependence” remains an investigation hypothesis. These exploratory configurations are separate from the deployed MI-selected model.
+
+**Distribution shift:** add +0.5 training SD to five training-SHAP-ranked features. Hold outcomes fixed as an explicit stress-test assumption. Compare test metrics, mean confidence, SHAP similarity, and feature importance. This is a **controlled distribution-shift experiment**, not observed production drift, and the unchanged-label assumption is not physically verified.
+
+**DiCE / intervention:** random-search counterfactuals use training 1st–99th percentile bounds for varying features. Every returned candidate is independently re-scored and must cross the active UI decision threshold. DiCE may internally use a stricter search threshold; unsuccessful searches are reported honestly. Search does not guarantee a globally minimal change. Values are standardized model inputs. Anonymous sensors have **unknown physical actionability**; none is identified as a validated adjustable actuator. The live what-if form modifies one influential feature, reruns the model, and shows the probability difference without claiming a causal maintenance benefit.
+
+## Presentation sequence
+
+1. **Overview:** introduce the workflow, class imbalance, actual model metrics, and XAI KPIs.
+2. **Dataset:** show missingness and anonymous sensors; explain why accuracy and physical actionability need care.
+3. **Model Runs:** inspect saved runs, activate one, or train a new candidate without overwriting the original model.
+4. **Run Comparison:** compare saved runs from the same split and inspect disagreement on identical held-out samples.
+5. **Model Benchmark:** open **Model Comparison** for the six baseline models, then inspect confusion matrix and PR curve.
+6. **Prediction:** select sample **238** and click **Predict on this sample**. It has about 99.8% predicted failure probability in the current original model. Uploaded CSV and manual-entry modes also remain available.
+7. **SHAP Explanation:** show global importance, then local contributions for the same sample. Explain positive/negative direction and the active model's SHAP units.
+8. **LIME Explanation:** show local coefficients, surrogate probability, and actual R²; acknowledge weak fidelity when present.
+9. **XAI Evaluation → Fidelity & consistency:** show the current sample's SHAP/LIME table and top-5 Jaccard agreement.
+10. **Counterfactual Analysis:** inspect original → changed feature values → independently verified new prediction. Explicitly state physical actionability is unknown.
+11. **XAI Evaluation → Faithfulness:** compare influential-feature changes with random controls, including negative sample results.
+12. **Robustness:** show 0/1/5/10% noise curves and original vs perturbed SHAP vectors.
+13. **Explanation-Guided Analysis:** compare 450 features, SHAP Top-40, and Top-5 ablation; discuss recall loss and controlled shift.
+14. **XAI Evaluation → Evaluation framework:** summarize measured evidence and unmeasured dimensions.
+15. **Decision Support:** choose `Feature_103`, keep its training-median replacement, click **Apply what-if and re-run prediction**. Current sample probability changes from about 99.8% to 96.5%; that alone does not flip the label. Expand perturbation validation and DiCE alternatives if desired.
+16. **Technical Details:** explain the protocol, threshold correction, saved-run isolation, and limitations.
+
+## Verification
+
+```bash
+python -m unittest discover -s tests -v
+python tests/smoke_ui.py
+python tests/smoke_model_switch.py
+# Optional real browser check, with Google Chrome installed and app running:
+python -m pip install -r requirements-dev.txt
+python tests/browser_smoke.py
+```
+
+Verified on the included dataset and real artifacts: numerical/integration tests; all-page renders and live intervention/validation/DiCE buttons; saved-run switching across prediction, SHAP, LIME, and evaluation loaders; application startup and browser navigation through the demo. Browser screenshots are under `outputs/figures/*_browser.png`. Baseline six-model CV, threshold correction, feature retraining, SHAP, LIME, DiCE, saved model runs, and all new experiments were executed. The complete historical hyperparameter-search pipeline and notebook were inspected but were not rerun as part of this extension.
+
+## Known limitations
+
+- **Protected demographic fairness could not be directly evaluated because the dataset does not provide appropriate protected-group attributes.** No anonymous sensor grouping is called demographic fairness.
+- Real maintenance benefit, human usefulness, causality, and physical actionability have not been evaluated.
+- The failure classifier is imperfect and its probabilities are not calibrated; SMOTEENN changes the training distribution.
+- The test set contains only 21 failures. Single-split estimates and 30-sample explanation summaries have no reported confidence intervals or statistical significance claim.
+- Random stratified splitting is retrospective, not temporal or prospective validation. The dataset has already been inspected during development.
+- LIME fidelity is weak on average and measured on its fitting neighborhood. High explanation similarity alone does not establish correctness.
+- Perturbations can violate real sensor relationships. Counterfactual search may fail, and marginal bounds do not establish joint physical feasibility.
+- Retaining original sensor names preserves feature identity but does not reveal physical meanings or make those sensors actionable.
+- Missing/stale reports are explicitly marked; missing artifacts require training, and absent packages require installing the pinned requirements. Pickle artifacts should only be loaded from this trusted project.

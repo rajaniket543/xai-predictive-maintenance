@@ -152,6 +152,7 @@ class SHAPExplainer:
 
         return {
             "predicted_class": CLASS_NAMES[int(proba >= 0.5)],
+            "output_units": "log-odds" if self.model_type in {"XGBClassifier", "HistGradientBoostingClassifier", "GradientBoostingClassifier", "LogisticRegression"} else "probability",
             "failure_probability": proba,
             "base_value": base_value,
             "top_contributors": contributors,

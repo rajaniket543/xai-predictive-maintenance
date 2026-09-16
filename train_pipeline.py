@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from sklearn.model_selection import StratifiedKFold, cross_validate
+from sklearn.model_selection import StratifiedKFold, cross_validate, cross_val_predict
 
 from src.data_loader import analyze_dataset, get_feature_columns, load_secom_dataset
 from src.evaluate import (
@@ -269,8 +269,11 @@ def main() -> None:
     thresh_df = threshold_analysis(y_test.values, y_proba_test)
     thresh_df.to_csv(METRICS_DIR / "threshold_analysis.csv", index=False)
 
-    best_f1_threshold = find_best_threshold(y_test.values, y_proba_test, metric="f1")
-    high_recall_threshold = find_threshold_for_recall(y_test.values, y_proba_test, target_recall=0.80)
+    # Refit the entire preprocessing/sampling/model pipeline in each training fold.
+    oof_proba = cross_val_predict(final_pipeline, X_train, y_train, cv=cv,
+                                   method="predict_proba", n_jobs=1)[:, 1]
+    best_f1_threshold = find_best_threshold(y_train.values, oof_proba, metric="f1")
+    high_recall_threshold = find_threshold_for_recall(y_train.values, oof_proba, target_recall=0.80)
     chosen_threshold = best_f1_threshold
 
     eval_report = full_evaluation_report(winner_name, y_test.values, y_proba_test, FIGURES_DIR, threshold=chosen_threshold)
@@ -315,7 +318,7 @@ def main() -> None:
 
     top_shap_features = global_importance_df["feature"].head(15).tolist()
     dice_explainer = DiCEExplainer(X_train_transformed, y_train, model_fitted, feature_names=selected_features)
-    dice_result = dice_explainer.generate_counterfactuals(example_row, total_cfs=3, features_to_vary=top_shap_features)
+    dice_result = dice_explainer.generate_counterfactuals(example_row, total_cfs=3, features_to_vary=top_shap_features, threshold=chosen_threshold)
     (EXPLANATIONS_DIR / "dice_example_explanation.txt").write_text(
         dice_explainer.explain_counterfactual_text(dice_result)
     )
@@ -337,6 +340,7 @@ def main() -> None:
         "random_seed": CONFIG.random_seed,
         "raw_feature_names": get_feature_columns(df),
         "selected_feature_names": selected_features,
+        "threshold_source": "training-only out-of-fold predictions (5 folds)",
         "chosen_threshold": chosen_threshold,
         "best_f1_threshold": best_f1_threshold,
         "high_recall_threshold": high_recall_threshold,

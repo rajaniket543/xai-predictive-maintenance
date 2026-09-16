@@ -1,0 +1,38 @@
+{
+  "run_id": "20260916T093753_random_forest_d1c3a386",
+  "label": "Random Forest \u00b7 seed 42",
+  "model_name": "random_forest",
+  "created_at": "2026-09-16T09:37:53.319701+00:00",
+  "trained_at": "2026-09-16T09:37:53.319701+00:00",
+  "seed": 42,
+  "features": 40,
+  "sampler": "smoteenn",
+  "threshold": 0.29,
+  "test_metrics": {
+    "accuracy": 0.6624203821656051,
+    "precision": 0.12389380530973451,
+    "recall": 0.6666666666666666,
+    "f1": 0.208955223880597,
+    "roc_auc": 0.7398017227368763,
+    "pr_auc": 0.22471104973248884
+  },
+  "cv_metrics": {
+    "accuracy": 0.8092577813248204,
+    "precision": 0.10606060606060606,
+    "recall": 0.25301204819277107,
+    "f1": 0.1494661921708185,
+    "roc_auc": 0.675260014416641,
+    "pr_auc": 0.11187049201557993
+  },
+  "duration_seconds": 5.510855542001082,
+  "dataset_signature": "33d883a4dadaa7776c84a9e54d2e5d5a382954dc3eb7c9e0f024b170b524b9df",
+  "split_signature": "7a049901bb6f8417a5baf2ffbc5f997b5af9be57c0a433f56d835c5579209a5c",
+  "versions": {
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.2.0",
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "imbalanced-learn": "0.14.2"
+  },
+  "protocol": "Untuned candidate defaults. Same raw train/test IDs and five CV folds across runs; preprocessing and resampling refit inside every fold. Pooled OOF metrics at 0.5; test metrics at training-OOF-selected threshold. Do not choose models by repeatedly maximizing test scores."
+}

@@ -15,20 +15,23 @@ def render() -> None:
     meta = pipeline.metadata
 
     page_header(
-        "Explainable AI-Based Predictive Maintenance",
-        "SECOM manufacturing dataset — failure prediction with SHAP, LIME, and DiCE explanations.",
+        "Predictive Maintenance XAI",
+        "Explainable AI for trustworthy manufacturing failure prediction",
     )
 
     n_total = meta["n_train"] + meta["n_test"]
     failure_rate = meta["dataset_failure_rate"]
     metrics = meta["test_metrics"]
 
-    cols = st.columns(4)
+    evaluation = state.get_evaluation()
+    cols = st.columns(6)
     cards = [
-        ("Total Samples", f"{n_total:,}", f"{meta['n_train']} train / {meta['n_test']} test"),
-        ("Failure Rate", f"{failure_rate:.1%}", "Severely imbalanced dataset"),
-        ("Model", meta["model_name"].replace("_", " ").title(), f"{meta['n_selected_features']} features used"),
-        ("Test Recall (Failure)", f"{metrics['recall']:.1%}", f"F1 = {metrics['f1']:.2f}"),
+        ("Model Accuracy", f"{metrics['accuracy']:.1%}", "Held-out test set"),
+        ("F1 Score", f"{metrics['f1']:.3f}", "Failure class"),
+        ("ROC-AUC", f"{metrics['roc_auc']:.3f}", "Ranking performance"),
+        ("Recall", f"{metrics['recall']:.1%}", "Failures detected"),
+        ("XAI Faithfulness", f"{evaluation['summary']['faithfulness']:.3f}" if evaluation else "Not evaluated", "Excess |Δ probability|"),
+        ("XAI Stability", f"{evaluation['summary']['stability']:.3f}" if evaluation else "Not evaluated", "Cosine at 1% SD noise"),
     ]
     for col, (label, value, sub) in zip(cols, cards):
         with col:
@@ -36,6 +39,12 @@ def render() -> None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    st.markdown('<div class="workflow">01 DATA → 02 MODEL → 03 PREDICTION → 04 EXPLANATION → 05 EVALUATION → 06 RE-EVALUATION → 07 DECISION SUPPORT</div>', unsafe_allow_html=True)
+    st.caption(f"{n_total:,} runs · {meta['n_raw_features']} anonymous sensors · {meta['model_class']} · report threshold {meta['chosen_threshold']:.2f} (training-only CV). Sidebar threshold changes live predictions only.")
+    if evaluation:
+        st.info(f"Presentation sample: {evaluation['demo_sample_id']}. Follow Prediction → SHAP → LIME → Counterfactuals → XAI Evaluation → Robustness → Explanation-Guided Analysis → Decision Support.")
+    else:
+        st.info("XAI results are missing or stale for this model. Compute them on Model Runs, or run the experiment CLI for the active run.")
     left, right = st.columns([1.3, 1])
     with left:
         st.subheader("Model Performance Snapshot (held-out test set)")
@@ -55,10 +64,9 @@ def render() -> None:
             height=340,
             margin=dict(l=10, r=10, t=10, b=10),
         )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
         st.caption(
-            f"Final model: **{meta['model_class']}**, selected via a composite score weighting "
-            "failure recall, F1, and PR-AUC (see the Model Performance and About pages for the full comparison)."
+            f"Active model: **{meta['model_class']}**. See Model Runs for its configuration and Run Comparison for saved experiment results."
         )
 
     with right:

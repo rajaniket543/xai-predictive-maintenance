@@ -24,7 +24,7 @@ import streamlit as st
 
 import state
 import styles
-from views import about, counterfactual_view, dashboard, lime_view, performance, predict, shap_view
+from views import about, counterfactual_view, dashboard, lime_view, performance, predict, shap_view, evaluation, dataset, model_runs
 
 st.set_page_config(
     page_title="XAI Predictive Maintenance",
@@ -42,6 +42,16 @@ def _render_sidebar() -> None:
     st.sidebar.caption("SECOM manufacturing failure prediction")
     st.sidebar.divider()
 
+    from src.model_runs import list_runs
+    runs = list_runs()
+    labels = {'original': 'Original working model (XGBoost)'}
+    labels.update({r['run_id']: f"{r['label']} · {r['run_id']}" for r in runs})
+    if state.active_run_id() not in labels:
+        state.activate_run('original')
+    def change_run():
+        state.activate_run(st.session_state.active_run_choice)
+    st.sidebar.selectbox('Active model run', options=list(labels), index=list(labels).index(state.active_run_id()),
+                         format_func=labels.get, key='active_run_choice', on_change=change_run)
     pipeline = state.get_pipeline()
     if pipeline is not None:
         if st.session_state.decision_threshold is None:
@@ -65,6 +75,10 @@ def _render_sidebar() -> None:
             "low_medium": bounds[0], "medium_high": bounds[1], "high_critical": bounds[2],
         }
 
+        if st.session_state.get("selected_raw_row") is not None:
+            st.session_state.last_prediction = pipeline.predict(st.session_state.selected_raw_row,
+                threshold=st.session_state.decision_threshold, risk_thresholds=st.session_state.risk_thresholds).iloc[0].to_dict()
+
         st.sidebar.divider()
         meta = pipeline.metadata
         st.sidebar.caption(
@@ -79,13 +93,20 @@ def _render_sidebar() -> None:
 _render_sidebar()
 
 pages = [
-    st.Page(dashboard.render, title="Dashboard", icon="🏠", url_path="dashboard", default=True),
-    st.Page(predict.render, title="Predict Failure", icon="🎯", url_path="predict"),
+    st.Page(dashboard.render, title="Overview", icon="🏠", url_path="dashboard", default=True),
+    st.Page(dataset.render, title="Dataset", icon="🗂️", url_path="dataset"),
+    st.Page(predict.render, title="Prediction", icon="🎯", url_path="predict"),
     st.Page(shap_view.render, title="SHAP Explanation", icon="📊", url_path="shap"),
     st.Page(lime_view.render, title="LIME Explanation", icon="🔍", url_path="lime"),
     st.Page(counterfactual_view.render, title="Counterfactual Analysis", icon="🔄", url_path="counterfactual"),
-    st.Page(performance.render, title="Model Performance", icon="📈", url_path="performance"),
-    st.Page(about.render, title="About / Methodology", icon="ℹ️", url_path="about"),
+    st.Page(model_runs.render, title="Model Runs", icon="🧠", url_path="models"),
+    st.Page(model_runs.comparison, title="Run Comparison", icon="⚖️", url_path="runs"),
+    st.Page(performance.render, title="Model Benchmark", icon="📈", url_path="performance"),
+    st.Page(evaluation.render, title="XAI Evaluation", icon="🔬", url_path="evaluation"),
+    st.Page(evaluation.robustness, title="Robustness", icon="🛡️", url_path="robustness"),
+    st.Page(evaluation.analysis, title="Explanation-Guided Analysis", icon="🧪", url_path="analysis"),
+    st.Page(evaluation.decision, title="Decision Support", icon="🔧", url_path="decision"),
+    st.Page(about.render, title="Technical Details", icon="ℹ️", url_path="about"),
 ]
 navigation = st.navigation(pages)
 navigation.run()
